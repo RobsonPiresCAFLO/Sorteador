@@ -2,6 +2,8 @@
 
 Sorteador de números para usar em sala de aula, eventos e rifas. Tem animação de suspense, confetes, letras enormes para projetar em tela cheia e um campo para informar o **prêmio de cada número**.
 
+### ▶️ [Abrir o sorteador](https://robsonpirescaflo.github.io/Sorteador/)
+
 É uma **página única** (`index.html`) feita só com HTML, CSS e JavaScript, sem bibliotecas e sem servidor. Basta abrir o arquivo no navegador.
 
 ![Sorteador no tema claro](img/claro.png)
@@ -29,7 +31,7 @@ Sorteador de números para usar em sala de aula, eventos e rifas. Tem animação
 
 ## Como usar
 
-1. Baixe o projeto e abra o `index.html` no navegador, ou coloque a pasta em um servidor web (Apache, Nginx, GitHub Pages…).
+1. Acesse **https://robsonpirescaflo.github.io/Sorteador/**. Se preferir usar offline, baixe o projeto e abra o `index.html` no navegador.
 2. Informe o intervalo (**De** / **Até**), a **Quantidade** de números e, se quiser, o prêmio de cada um.
 3. Clique em **SORTEAR** ou aperte `Espaço`.
 
@@ -50,14 +52,6 @@ Tudo fica no `localStorage` do navegador, em duas chaves:
 - `sorteador.config`: os campos, os prêmios digitados, o tema e o som.
 
 O histórico vale só para o navegador e o computador em que o sorteio foi feito. Para guardar uma cópia, use **Baixar CSV**.
-
-## Prompt usado
-
-O projeto foi criado com o [Claude Code](https://claude.com/claude-code) a partir destes pedidos:
-
-> Quero que crie nesta pasta um arquivo index.html ou index.php para fazer um sorteador de números. Gostaria de animação para gerar expectativa durante o sorteio e na apresentação do número sorteado. Coloque fontes bem grandes para exibir em tela cheia. Quando sortear o número ou clicar no número sorteado, mostra animação de confetes. Também preciso de opções para sortear mais números e salvar em db storage uma lista de números sorteados. Opção de tema claro e escuro e que seja responsivo.
-
-> Vamos adicionar um campo de texto para informar o que será sorteado para cada campo. Então, quando escolher a quantidade, abrirão caixas de texto para colocar o texto do que será a premiação.
 
 ## Autor
 
