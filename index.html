@@ -1,0 +1,1092 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sorteador de Números</title>
+<meta name="description" content="Sorteador de números com animação, confetes, histórico salvo e tema claro/escuro.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@500;700;900&display=swap" rel="stylesheet">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎲</text></svg>">
+<script>
+  // Aplica o tema salvo antes de desenhar a página (evita "piscar").
+  (function () {
+    try {
+      var c = JSON.parse(localStorage.getItem('sorteador.config') || '{}');
+      if (c && c.tema) document.documentElement.dataset.theme = c.tema;
+    } catch (e) {}
+  })();
+</script>
+<style>
+  /* ===================== Cores (tema claro / escuro) ===================== */
+  :root {
+    --bg: #eef1f8;
+    --bg-grad: radial-gradient(1200px 650px at 50% -10%, #ddd3ff 0%, transparent 60%),
+               radial-gradient(900px 500px at 100% 100%, #ffd9e4 0%, transparent 55%);
+    --surface: rgba(255, 255, 255, .78);
+    --surface-solid: #ffffff;
+    --text: #161a33;
+    --muted: #5a6183;
+    --border: #d9deec;
+    --accent: #6d28d9;
+    --accent-2: #db2777;
+    --num-grad: linear-gradient(180deg, #7c3aed 0%, #db2777 55%, #f59e0b 100%);
+    --shadow: 0 12px 34px rgba(40, 30, 90, .12);
+    --chip-bg: #efe9ff;
+    --chip-text: #4c1d95;
+    --glow: rgba(124, 58, 237, .40);
+    --perigo: #dc2626;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0b0d1a;
+      --bg-grad: radial-gradient(1200px 650px at 50% -10%, #2b1f63 0%, transparent 60%),
+                 radial-gradient(900px 500px at 100% 100%, #4a1236 0%, transparent 55%);
+      --surface: rgba(21, 26, 48, .78);
+      --surface-solid: #151a30;
+      --text: #f3f4ff;
+      --muted: #a6acce;
+      --border: #2b3258;
+      --accent: #a78bfa;
+      --accent-2: #f472b6;
+      --num-grad: linear-gradient(180deg, #c4b5fd 0%, #f472b6 55%, #fbbf24 100%);
+      --shadow: 0 12px 34px rgba(0, 0, 0, .45);
+      --chip-bg: #261e4f;
+      --chip-text: #e4dcff;
+      --glow: rgba(167, 139, 250, .45);
+      --perigo: #f87171;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0b0d1a;
+    --bg-grad: radial-gradient(1200px 650px at 50% -10%, #2b1f63 0%, transparent 60%),
+               radial-gradient(900px 500px at 100% 100%, #4a1236 0%, transparent 55%);
+    --surface: rgba(21, 26, 48, .78);
+    --surface-solid: #151a30;
+    --text: #f3f4ff;
+    --muted: #a6acce;
+    --border: #2b3258;
+    --accent: #a78bfa;
+    --accent-2: #f472b6;
+    --num-grad: linear-gradient(180deg, #c4b5fd 0%, #f472b6 55%, #fbbf24 100%);
+    --shadow: 0 12px 34px rgba(0, 0, 0, .45);
+    --chip-bg: #261e4f;
+    --chip-text: #e4dcff;
+    --glow: rgba(167, 139, 250, .45);
+    --perigo: #f87171;
+    color-scheme: dark;
+  }
+
+  /* ===================== Base ===================== */
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    min-height: 100dvh;
+    background-color: var(--bg);
+    background-image: var(--bg-grad);
+    background-attachment: fixed;
+    color: var(--text);
+    font-family: 'Rubik', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+    transition: background-color .3s, color .3s;
+    overflow-x: hidden;
+  }
+  button { font: inherit; color: inherit; }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+
+  #confete {
+    position: fixed; inset: 0; width: 100%; height: 100%;
+    pointer-events: none; z-index: 50;
+  }
+
+  /* ===================== Topo ===================== */
+  .topo {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 12px 16px;
+  }
+  .topo h1 {
+    margin: 0; font-size: clamp(1.25rem, 3vw, 1.8rem); font-weight: 900; letter-spacing: -.01em;
+    display: flex; align-items: center; gap: .4em;
+  }
+  .topo h1 span { color: var(--accent); }
+  .acoes { display: flex; gap: 8px; }
+  .icone {
+    width: 46px; height: 46px; border-radius: 50%;
+    display: grid; place-items: center;
+    background: var(--surface); border: 1px solid var(--border);
+    box-shadow: var(--shadow); cursor: pointer;
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    transition: transform .15s, background-color .3s;
+  }
+  .icone:hover { transform: translateY(-2px); }
+  .icone svg { width: 22px; height: 22px; }
+
+  /* ===================== Layout ===================== */
+  .layout {
+    display: grid; gap: 16px;
+    padding: 0 16px 16px;
+    grid-template-columns: minmax(0, 1fr);
+  }
+  @media (min-width: 1000px) {
+    .layout { grid-template-columns: minmax(0, 1fr) 340px; align-items: start; }
+  }
+
+  .cartao {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 28px;
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+    transition: background-color .3s, border-color .3s;
+  }
+
+  /* ===================== Palco (número grande) ===================== */
+  .palco {
+    container-type: inline-size;
+    position: relative; overflow: hidden;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: clamp(8px, 2vh, 20px);
+    text-align: center;
+    padding: clamp(14px, 3vw, 28px) 16px;
+    min-height: calc(100dvh - 86px);
+  }
+  .palco > * { position: relative; z-index: 1; }
+  .palco::before {
+    content: ""; position: absolute; inset: -60%; z-index: 0;
+    background: conic-gradient(from 0deg, transparent 0 10%, var(--glow) 18%, transparent 28% 45%,
+                var(--glow) 55%, transparent 65% 80%, var(--glow) 90%, transparent 100%);
+    opacity: 0; transition: opacity .5s;
+    animation: girar 6s linear infinite;
+    pointer-events: none;
+  }
+  .palco.ativo::before { opacity: .45; animation-duration: 2.2s; }
+  @keyframes girar { to { transform: rotate(360deg); } }
+
+  .status {
+    font-size: clamp(1.1rem, 4cqi, 2.6rem);
+    font-weight: 700; color: var(--muted);
+    min-height: 1.3em; margin: 0;
+    transition: color .3s;
+  }
+  .status.destaque { color: var(--accent); }
+  .status.erro { color: var(--perigo); }
+
+  .numero {
+    --d: 1;
+    appearance: none; border: 0; background: none; padding: 0 .05em; margin: 0;
+    cursor: pointer; user-select: none; -webkit-user-select: none;
+    font-family: inherit; font-weight: 900; line-height: .95;
+    font-variant-numeric: tabular-nums; letter-spacing: -.02em;
+    font-size: min(calc(90vw / (var(--d) * .64 + .15)), 40vh);
+    font-size: min(calc(92cqi / (var(--d) * .64 + .15)), 40vh);
+    background-image: var(--num-grad);
+    -webkit-background-clip: text; background-clip: text;
+    color: transparent; -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 10px 28px var(--glow));
+    max-width: 100%;
+  }
+  .numero.rolando { animation: tremer .12s linear infinite; filter: blur(1.2px) drop-shadow(0 10px 28px var(--glow)); }
+  .numero.tenso   { animation: tremer .07s linear infinite, pulsar .45s ease-in-out infinite; }
+  .numero.revelado { animation: revelar .9s cubic-bezier(.2, 1.5, .4, 1) both; }
+  .numero.pulo     { animation: pulo .5s ease-out; }
+  @keyframes tremer {
+    0%, 100% { translate: 0 0; }
+    25% { translate: -4px 2px; }
+    50% { translate: 4px -2px; }
+    75% { translate: -2px -4px; }
+  }
+  @keyframes pulsar { 50% { scale: 1.07; } }
+  @keyframes revelar {
+    0%   { scale: .15; rotate: -14deg; opacity: 0; }
+    60%  { scale: 1.2; rotate: 3deg; opacity: 1; }
+    100% { scale: 1; rotate: 0deg; opacity: 1; }
+  }
+  @keyframes pulo { 40% { scale: 1.12; } }
+
+  .resultados {
+    display: flex; flex-wrap: wrap; justify-content: center; gap: 10px;
+    min-height: 0; max-width: 100%;
+  }
+  .chip {
+    appearance: none; cursor: pointer;
+    font-weight: 800; font-variant-numeric: tabular-nums;
+    min-width: 2.2em; padding: .12em .5em;
+    border-radius: 999px; border: 2px solid transparent;
+    background: var(--chip-bg); color: var(--chip-text);
+    transition: transform .15s, border-color .2s, background-color .3s;
+  }
+  .chip { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.05; }
+  .chip.com-premio { border-radius: 18px; padding: .2em .6em; }
+  .chip-premio {
+    font-size: .4em; font-weight: 700; opacity: .85;
+    max-width: 16em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .todos .chip-premio { font-size: .6em; max-width: 10em; }
+  .chip:hover { transform: translateY(-2px); }
+  .chip.atual { border-color: var(--accent-2); }
+  .resultados .chip { font-size: clamp(1.4rem, 5cqi, 3.4rem); animation: surgir .5s cubic-bezier(.2, 1.6, .4, 1) both; }
+  @keyframes surgir { from { scale: 0; opacity: 0; } to { scale: 1; opacity: 1; } }
+
+  /* ===================== Controles ===================== */
+  .controles { width: min(100%, 920px); display: grid; gap: 12px; justify-items: center; }
+  .campos {
+    width: 100%;
+    display: grid; gap: 10px;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  }
+  .campos label {
+    display: flex; flex-direction: column; gap: 4px;
+    text-align: left; font-weight: 700; font-size: .95rem; color: var(--muted);
+  }
+  .campos input, .campos select {
+    width: 100%; font: inherit; font-weight: 700; font-size: 1.35rem;
+    padding: .4em .6em; border-radius: 14px;
+    border: 1px solid var(--border); background: var(--surface-solid); color: var(--text);
+  }
+  .check {
+    display: flex; align-items: center; gap: 10px;
+    font-weight: 600; color: var(--muted); cursor: pointer;
+  }
+  .check input { width: 22px; height: 22px; accent-color: var(--accent); }
+  .disp { color: var(--muted); font-size: .95rem; min-height: 1.2em; }
+
+  /* Prêmios: uma caixa de texto por número sorteado */
+  .premios-bloco { width: 100%; display: grid; gap: 8px; }
+  .premios-bloco > span { font-weight: 700; font-size: .95rem; color: var(--muted); text-align: left; }
+  .premios {
+    display: grid; gap: 8px; padding: 2px;
+    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+    max-height: 32vh; overflow-y: auto;
+  }
+  .premios label {
+    display: flex; align-items: center; gap: 6px;
+    padding: 2px 4px 2px 12px; border-radius: 14px;
+    background: var(--surface-solid); border: 1px solid var(--border);
+    font-weight: 800; color: var(--accent); white-space: nowrap;
+    transition: border-color .2s, box-shadow .2s;
+  }
+  .premios label:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--glow); }
+  .premios input {
+    flex: 1; min-width: 0; border: 0; background: transparent;
+    font: inherit; font-weight: 600; font-size: 1.1rem; color: var(--text);
+    padding: .5em .4em;
+  }
+  .premios input:focus { outline: none; }
+
+  /* Prêmio em destaque acima do número */
+  .premio {
+    margin: 0; max-width: 100%;
+    font-weight: 900; line-height: 1.1; overflow-wrap: anywhere;
+    font-size: clamp(1.6rem, 6cqi, 4.8rem);
+    color: var(--text);
+  }
+  .premio.entrar { animation: surgir .5s cubic-bezier(.2, 1.6, .4, 1) both; }
+
+  .sortear {
+    appearance: none; border: 0; cursor: pointer;
+    font-size: clamp(1.6rem, 5cqi, 3rem); font-weight: 900; letter-spacing: .08em;
+    padding: .45em 1.6em; border-radius: 999px; color: #fff;
+    background: linear-gradient(135deg, #7c3aed, #db2777);
+    box-shadow: 0 12px 30px var(--glow);
+    animation: respirar 2.4s ease-in-out infinite;
+    transition: opacity .2s, filter .2s;
+  }
+  .sortear:hover { filter: brightness(1.08); }
+  .sortear:disabled { opacity: .55; cursor: progress; animation: none; }
+  @keyframes respirar { 50% { scale: 1.04; box-shadow: 0 14px 50px var(--glow); } }
+  .dica { color: var(--muted); font-size: .85rem; margin: 0; }
+  .dica kbd {
+    font-family: inherit; font-weight: 700; padding: .05em .4em;
+    border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 6px;
+    background: var(--surface-solid);
+  }
+
+  /* ===================== Histórico ===================== */
+  .historico { padding: 18px; display: flex; flex-direction: column; gap: 12px; }
+  @media (min-width: 1000px) {
+    .historico { position: sticky; top: 16px; max-height: calc(100dvh - 102px); }
+  }
+  .historico h2 { margin: 0; font-size: 1.3rem; font-weight: 900; }
+  .hist-info { color: var(--muted); font-size: .9rem; margin: 2px 0 0; }
+  .todos {
+    display: flex; flex-wrap: wrap; gap: 6px;
+    overflow-y: auto; max-height: 30vh; padding: 2px;
+  }
+  .todos .chip { font-size: 1.15rem; }
+  .vazio { color: var(--muted); font-style: italic; margin: 0; }
+  details { border-top: 1px solid var(--border); padding-top: 10px; min-height: 0; display: flex; flex-direction: column; }
+  details[open] { flex: 1; overflow: hidden; }
+  summary { cursor: pointer; font-weight: 700; color: var(--muted); }
+  .rodadas { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 8px; overflow-y: auto; max-height: 40vh; }
+  .rodadas li {
+    display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; align-items: start;
+    padding: 10px 12px; border-radius: 14px;
+    background: var(--surface-solid); border: 1px solid var(--border);
+  }
+  .rodadas .meta { font-size: .8rem; color: var(--muted); }
+  .rodadas .nums { font-weight: 800; font-size: 1.1rem; word-break: break-word; grid-column: 1; }
+  .rodadas .remover {
+    grid-row: 1 / span 2; grid-column: 2;
+    appearance: none; border: 0; background: none; cursor: pointer;
+    color: var(--muted); font-size: 1.3rem; line-height: 1; padding: 4px 6px; border-radius: 8px;
+  }
+  .rodadas .remover:hover { color: var(--perigo); }
+  .hist-acoes { display: flex; flex-wrap: wrap; gap: 8px; }
+  .btn {
+    appearance: none; cursor: pointer; flex: 1 1 auto;
+    padding: .55em 1em; border-radius: 12px; font-weight: 700;
+    border: 1px solid var(--border); background: var(--surface-solid);
+    transition: transform .15s, border-color .2s, color .2s;
+  }
+  .btn:hover { transform: translateY(-1px); border-color: var(--accent); }
+  .btn.perigo { color: var(--perigo); border-color: var(--perigo); }
+
+  /* ===================== Aviso flutuante ===================== */
+  .toast {
+    position: fixed; left: 50%; bottom: 20px; z-index: 60;
+    translate: -50% 20px; opacity: 0; pointer-events: none;
+    padding: 12px 20px; border-radius: 14px; max-width: calc(100vw - 32px);
+    background: var(--surface-solid); color: var(--text);
+    border: 1px solid var(--border); box-shadow: var(--shadow); font-weight: 600;
+    transition: opacity .25s, translate .25s;
+  }
+  .toast.ver { opacity: 1; translate: -50% 0; }
+
+  /* ===================== Modo apresentação (tela cheia) ===================== */
+  body.apresentacao .layout { grid-template-columns: minmax(0, 1fr); }
+  body.apresentacao .historico,
+  body.apresentacao .campos,
+  body.apresentacao .check,
+  body.apresentacao .disp,
+  body.apresentacao .premios-bloco,
+  body.apresentacao .dica { display: none; }
+  body.apresentacao .palco { min-height: calc(100dvh - 86px); }
+  body.apresentacao .numero {
+    font-size: min(calc(92vw / (var(--d) * .64 + .15)), 46vh);
+    font-size: min(calc(92cqi / (var(--d) * .64 + .15)), 46vh);
+  }
+  body.sorteando .campos, body.sorteando .check, body.sorteando .premios-bloco { opacity: .5; pointer-events: none; }
+
+  /* ===================== Celular ===================== */
+  @media (max-width: 600px) {
+    .palco { min-height: auto; border-radius: 22px; }
+    .numero { font-size: min(calc(92cqi / (var(--d) * .64 + .15)), 38vh); }
+    .campos { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .topo h1 .txt-longo { display: none; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .palco::before, .sortear { animation: none; }
+    .numero.rolando, .numero.tenso { animation: none; }
+  }
+</style>
+</head>
+<body>
+<canvas id="confete" aria-hidden="true"></canvas>
+
+<header class="topo">
+  <h1>🎲 <span>Sorteador</span><span class="txt-longo" style="color:inherit">de Números</span></h1>
+  <div class="acoes">
+    <button class="icone" id="btnSom" type="button"></button>
+    <button class="icone" id="btnTema" type="button"></button>
+    <button class="icone" id="btnTela" type="button"></button>
+  </div>
+</header>
+
+<main class="layout">
+  <section class="palco cartao" id="palco">
+    <p class="status" id="status">Pronto para sortear!</p>
+    <p class="premio" id="premio" hidden></p>
+    <button class="numero" id="numero" type="button" title="Clique para comemorar!" aria-live="polite">?</button>
+    <div class="resultados" id="resultados"></div>
+
+    <div class="controles">
+      <div class="campos">
+        <label>De <input id="min" type="number" inputmode="numeric" step="1" value="1"></label>
+        <label>Até <input id="max" type="number" inputmode="numeric" step="1" value="100"></label>
+        <label>Quantidade <input id="qtd" type="number" inputmode="numeric" min="1" max="100" step="1" value="1"></label>
+        <label>Suspense
+          <select id="suspense">
+            <option value="1500">Rápido</option>
+            <option value="3500" selected>Normal</option>
+            <option value="6000">Longo</option>
+            <option value="9000">Muito longo</option>
+          </select>
+        </label>
+      </div>
+      <div class="premios-bloco">
+        <span>🎁 O que será sorteado (opcional) — uma caixa para cada número:</span>
+        <div class="premios" id="premios"></div>
+      </div>
+      <label class="check"><input type="checkbox" id="semRepetir" checked> Não repetir números já sorteados</label>
+      <div class="disp" id="disp"></div>
+      <button class="sortear" id="btnSortear" type="button">SORTEAR</button>
+      <p class="dica"><kbd>Espaço</kbd> sorteia · <kbd>F</kbd> tela cheia · <kbd>T</kbd> tema · <kbd>S</kbd> som</p>
+    </div>
+  </section>
+
+  <aside class="historico cartao" aria-label="Histórico de números sorteados">
+    <div>
+      <h2>Números sorteados</h2>
+      <p class="hist-info" id="histInfo"></p>
+    </div>
+    <div class="todos" id="todos"></div>
+    <p class="vazio" id="histVazio">Nenhum número sorteado ainda.</p>
+    <details id="detalhes">
+      <summary>Detalhes por rodada</summary>
+      <ol class="rodadas" id="rodadas"></ol>
+    </details>
+    <div class="hist-acoes">
+      <button class="btn" id="btnCopiar" type="button">Copiar</button>
+      <button class="btn" id="btnCsv" type="button">Baixar CSV</button>
+      <button class="btn" id="btnLimpar" type="button">Limpar</button>
+    </div>
+  </aside>
+</main>
+
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+(() => {
+  'use strict';
+
+  const $ = (s) => document.querySelector(s);
+  const el = {
+    palco: $('#palco'), status: $('#status'), numero: $('#numero'), resultados: $('#resultados'),
+    premio: $('#premio'), premios: $('#premios'),
+    min: $('#min'), max: $('#max'), qtd: $('#qtd'), suspense: $('#suspense'), semRepetir: $('#semRepetir'),
+    disp: $('#disp'), sortear: $('#btnSortear'),
+    todos: $('#todos'), vazio: $('#histVazio'), rodadas: $('#rodadas'), histInfo: $('#histInfo'),
+    btnCopiar: $('#btnCopiar'), btnCsv: $('#btnCsv'), btnLimpar: $('#btnLimpar'),
+    btnSom: $('#btnSom'), btnTema: $('#btnTema'), btnTela: $('#btnTela'), toast: $('#toast'),
+  };
+
+  /* ===================== Armazenamento (localStorage) ===================== */
+  const K_HIST = 'sorteador.historico';
+  const K_CFG = 'sorteador.config';
+  const store = {
+    get(k, padrao) {
+      try { const v = localStorage.getItem(k); return v === null ? padrao : JSON.parse(v); }
+      catch (e) { return padrao; }
+    },
+    set(k, v) {
+      try { localStorage.setItem(k, JSON.stringify(v)); return true; }
+      catch (e) { return false; }
+    },
+  };
+
+  let historico = store.get(K_HIST, []);
+  if (!Array.isArray(historico)) historico = [];
+  historico = historico
+    .filter((r) => r && Array.isArray(r.numeros))
+    .map((r) => ({
+      ...r,
+      numeros: r.numeros.filter(Number.isInteger),
+      premios: Array.isArray(r.premios) ? r.premios.map((t) => String(t || '')) : [],
+    }));
+
+  const cfg = Object.assign(
+    { min: 1, max: 100, qtd: 1, suspense: '3500', semRepetir: true, som: true, tema: null, premios: [] },
+    store.get(K_CFG, {}) || {}
+  );
+  if (!Array.isArray(cfg.premios)) cfg.premios = [];
+  const salvarCfg = () => store.set(K_CFG, cfg);
+  const salvarHist = () => {
+    if (!store.set(K_HIST, historico)) aviso('Não foi possível salvar o histórico neste navegador.');
+  };
+
+  el.min.value = cfg.min;
+  el.max.value = cfg.max;
+  el.qtd.value = cfg.qtd;
+  el.suspense.value = String(cfg.suspense);
+  if (!el.suspense.value) el.suspense.value = '3500';
+  el.semRepetir.checked = !!cfg.semRepetir;
+
+  /* ===================== Ícones ===================== */
+  const svg = (p) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
+  const ICON = {
+    sol: svg('<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>'),
+    lua: svg('<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>'),
+    somOn: svg('<path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/>'),
+    somOff: svg('<path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="m22 9-6 6M16 9l6 6"/>'),
+    cheia: svg('<path d="M3 9V3h6M21 9V3h-6M3 15v6h6M21 15v6h-6"/>'),
+    sair: svg('<path d="M9 3v6H3M15 3v6h6M9 21v-6H3M15 21v-6h6"/>'),
+  };
+
+  /* ===================== Tema ===================== */
+  const mqEscuro = matchMedia('(prefers-color-scheme: dark)');
+  const temaAtual = () => document.documentElement.dataset.theme || (mqEscuro.matches ? 'dark' : 'light');
+  function atualizarTema() {
+    const escuro = temaAtual() === 'dark';
+    el.btnTema.innerHTML = escuro ? ICON.sol : ICON.lua;
+    el.btnTema.title = escuro ? 'Tema claro (T)' : 'Tema escuro (T)';
+    el.btnTema.setAttribute('aria-label', el.btnTema.title);
+  }
+  function alternarTema() {
+    const novo = temaAtual() === 'dark' ? 'light' : 'dark';
+    document.documentElement.dataset.theme = novo;
+    cfg.tema = novo; salvarCfg(); atualizarTema();
+  }
+  mqEscuro.addEventListener('change', atualizarTema);
+
+  /* ===================== Som (Web Audio, sem arquivos) ===================== */
+  let ac = null;
+  function audio() {
+    if (!cfg.som) return null;
+    try {
+      if (!ac) ac = new (window.AudioContext || window.webkitAudioContext)();
+      if (ac.state === 'suspended') ac.resume();
+      return ac;
+    } catch (e) { return null; }
+  }
+  function bip(freq, dur = 0.05, tipo = 'square', vol = 0.06, atraso = 0) {
+    const a = audio(); if (!a) return;
+    const t = a.currentTime + atraso;
+    const o = a.createOscillator(), g = a.createGain();
+    o.type = tipo; o.frequency.setValueAtTime(freq, t);
+    g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g).connect(a.destination);
+    o.start(t); o.stop(t + dur + 0.02);
+  }
+  const somTick = (p) => bip(420 + p * 760, 0.035, 'square', 0.035);
+  const somPop = () => { bip(660, 0.08, 'sine', 0.1); bip(990, 0.1, 'sine', 0.08, 0.05); };
+  function somFinal() {
+    [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => bip(f, 0.3, 'triangle', 0.12, i * 0.08));
+    [523.25, 783.99, 1046.5, 1318.5].forEach((f) => bip(f, 0.9, 'triangle', 0.07, 0.36));
+  }
+  function atualizarSom() {
+    el.btnSom.innerHTML = cfg.som ? ICON.somOn : ICON.somOff;
+    el.btnSom.title = cfg.som ? 'Desligar som (S)' : 'Ligar som (S)';
+    el.btnSom.setAttribute('aria-label', el.btnSom.title);
+  }
+  function alternarSom() { cfg.som = !cfg.som; salvarCfg(); atualizarSom(); if (cfg.som) somPop(); }
+
+  /* ===================== Tela cheia ===================== */
+  function atualizarTela() {
+    const ativo = document.body.classList.contains('apresentacao');
+    el.btnTela.innerHTML = ativo ? ICON.sair : ICON.cheia;
+    el.btnTela.title = ativo ? 'Sair da tela cheia (F)' : 'Tela cheia (F)';
+    el.btnTela.setAttribute('aria-label', el.btnTela.title);
+  }
+  function alternarTela() {
+    const d = document, raiz = d.documentElement;
+    const emTela = d.fullscreenElement || d.webkitFullscreenElement;
+    const pedir = raiz.requestFullscreen || raiz.webkitRequestFullscreen;
+    const sair = d.exitFullscreen || d.webkitExitFullscreen;
+    if (emTela && sair) { sair.call(d); return; }
+    if (pedir && (d.fullscreenEnabled || d.webkitFullscreenEnabled)) {
+      try {
+        const r = pedir.call(raiz);
+        if (r && r.catch) r.catch(() => modoApresentacao(!document.body.classList.contains('apresentacao')));
+      } catch (e) { modoApresentacao(!document.body.classList.contains('apresentacao')); }
+    } else {
+      // Navegadores sem tela cheia (ex.: iPhone): só esconde os controles.
+      modoApresentacao(!document.body.classList.contains('apresentacao'));
+    }
+  }
+  function modoApresentacao(on) {
+    document.body.classList.toggle('apresentacao', on);
+    atualizarTela(); setTimeout(ajustarCanvas, 50);
+  }
+  ['fullscreenchange', 'webkitfullscreenchange'].forEach((ev) =>
+    document.addEventListener(ev, () => modoApresentacao(!!(document.fullscreenElement || document.webkitFullscreenElement)))
+  );
+
+  /* ===================== Sorteio justo (crypto) ===================== */
+  const buf = new Uint32Array(1);
+  function randInt(min, max) {
+    const faixa = max - min + 1;
+    if (faixa <= 1) return min;
+    const limite = Math.floor(0x100000000 / faixa) * faixa; // evita viés do módulo
+    let x;
+    do { crypto.getRandomValues(buf); x = buf[0]; } while (x >= limite);
+    return min + (x % faixa);
+  }
+
+  function jaSorteados() {
+    const s = new Set();
+    historico.forEach((r) => r.numeros.forEach((n) => s.add(n)));
+    return s;
+  }
+
+  function lerParametros() {
+    let min = parseInt(el.min.value, 10);
+    let max = parseInt(el.max.value, 10);
+    let qtd = parseInt(el.qtd.value, 10);
+    if (!Number.isFinite(min) || !Number.isFinite(max)) return { erro: 'Informe o número inicial e o final.' };
+    if (Math.abs(min) > 1e9 || Math.abs(max) > 1e9) return { erro: 'Use números entre -1.000.000.000 e 1.000.000.000.' };
+    if (min > max) [min, max] = [max, min];
+    if (!Number.isFinite(qtd) || qtd < 1) qtd = 1;
+    if (qtd > 100) return { erro: 'Sorteie no máximo 100 números por vez.' };
+    return { min, max, qtd };
+  }
+
+  function contarDisponiveis(p) {
+    const total = p.max - p.min + 1;
+    if (!el.semRepetir.checked) return { total, livres: total };
+    let usados = 0;
+    jaSorteados().forEach((n) => { if (n >= p.min && n <= p.max) usados++; });
+    return { total, livres: total - usados };
+  }
+
+  function escolher(p) {
+    const excluir = el.semRepetir.checked ? jaSorteados() : new Set();
+    const { total, livres } = contarDisponiveis(p);
+    if (livres <= 0) return { erro: 'Todos os números do intervalo já foram sorteados! Limpe o histórico ou desmarque "Não repetir".' };
+    if (p.qtd > livres) return { erro: `Só ${fmt(livres)} número(s) disponível(is) para sortear.` };
+    const out = [];
+    const usados = new Set(excluir);
+    if (livres / total < 0.5 && total <= 2e6) {
+      // Poucos livres: monta a lista e embaralha só o necessário (Fisher-Yates parcial).
+      const pool = [];
+      for (let n = p.min; n <= p.max; n++) if (!usados.has(n)) pool.push(n);
+      for (let i = 0; i < p.qtd; i++) {
+        const j = randInt(i, pool.length - 1);
+        [pool[i], pool[j]] = [pool[j], pool[i]];
+        out.push(pool[i]);
+      }
+    } else {
+      while (out.length < p.qtd) {
+        const n = randInt(p.min, p.max);
+        if (!usados.has(n)) { usados.add(n); out.push(n); }
+      }
+    }
+    return { numeros: out };
+  }
+
+  const fmt = (n) => Number(n).toLocaleString('pt-BR');
+  const esperar = (ms) => new Promise((r) => setTimeout(r, ms));
+  const digitos = (n) => String(n).length;
+
+  function atualizarDisponiveis() {
+    const p = lerParametros();
+    if (p.erro) { el.disp.textContent = p.erro; return; }
+    const { total, livres } = contarDisponiveis(p);
+    el.disp.textContent = el.semRepetir.checked
+      ? `${fmt(livres)} de ${fmt(total)} números disponíveis`
+      : `${fmt(total)} números no intervalo (podem se repetir entre rodadas)`;
+  }
+
+  /* ===================== Prêmios ===================== */
+  // Uma caixa de texto por número; os textos ficam salvos mesmo se a quantidade diminuir.
+  function renderPremios() {
+    const q = Math.min(100, Math.max(1, parseInt(el.qtd.value, 10) || 1));
+    while (el.premios.children.length > q) el.premios.lastElementChild.remove();
+    for (let i = el.premios.children.length; i < q; i++) {
+      const lab = document.createElement('label');
+      const inp = document.createElement('input');
+      inp.type = 'text'; inp.maxLength = 80;
+      inp.placeholder = q === 1 && i === 0 ? 'Ex.: Bicicleta' : `Prêmio do ${i + 1}º número`;
+      inp.value = cfg.premios[i] || '';
+      inp.addEventListener('input', () => { cfg.premios[i] = inp.value; salvarCfg(); });
+      lab.append(`${i + 1}º`, inp);
+      el.premios.appendChild(lab);
+    }
+  }
+  const lerPremios = (q) => Array.from({ length: q }, (_, i) => (cfg.premios[i] || '').trim());
+
+  function mostrarPremio(txt, animar = true) {
+    el.premio.hidden = !txt;
+    el.premio.textContent = txt ? '🎁 ' + txt : '';
+    if (txt && animar) {
+      el.premio.classList.remove('entrar'); void el.premio.offsetWidth; el.premio.classList.add('entrar');
+    }
+  }
+
+  /* ===================== Exibição ===================== */
+  function mostrarNumero(n, d) {
+    el.numero.textContent = n;
+    el.numero.style.setProperty('--d', d || digitos(n));
+  }
+  function status(txt, classe = '') {
+    el.status.textContent = txt;
+    el.status.className = 'status' + (classe ? ' ' + classe : '');
+  }
+  function reiniciarAnim(classe) {
+    el.numero.classList.remove('revelado', 'pulo');
+    void el.numero.offsetWidth; // força o navegador a reiniciar a animação
+    el.numero.classList.add(classe);
+  }
+
+  const FRASES = ['Sorteando…', 'Rufem os tambores…', 'Quem será?', 'Quase lá…'];
+
+  function rolar(p, dur, d, idx, total) {
+    return new Promise((fim) => {
+      const t0 = performance.now();
+      let ultimo = -1e9, atual = null;
+      el.numero.classList.remove('revelado', 'pulo', 'tenso');
+      el.numero.classList.add('rolando');
+      el.numero.style.setProperty('--d', d);
+      const prefixo = total > 1 ? `${idx + 1}º de ${total} · ` : '';
+      function quadro(t) {
+        const pr = Math.max(0, Math.min(1, (t - t0) / dur));
+        const intervalo = 45 + 420 * Math.pow(pr, 2.4); // vai desacelerando
+        if (t - ultimo >= intervalo) {
+          ultimo = t;
+          let n;
+          do { n = randInt(p.min, p.max); } while (n === atual && p.max > p.min);
+          atual = n;
+          el.numero.textContent = n;
+          somTick(pr);
+        }
+        if (pr > 0.72) el.numero.classList.add('tenso');
+        status(prefixo + FRASES[Math.min(FRASES.length - 1, Math.floor(pr * FRASES.length))]);
+        if (pr < 1) requestAnimationFrame(quadro);
+        else { el.numero.classList.remove('rolando', 'tenso'); fim(); }
+      }
+      requestAnimationFrame(quadro);
+    });
+  }
+
+  function marcarAtual(chip) {
+    document.querySelectorAll('.chip.atual').forEach((c) => c.classList.remove('atual'));
+    if (chip) chip.classList.add('atual');
+  }
+
+  function criarChip(n, premio = '') {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'chip'; b.dataset.n = n; b.dataset.premio = premio;
+    if (premio) {
+      const s = document.createElement('span');
+      s.className = 'chip-premio'; s.textContent = premio;
+      b.append(s, String(n));
+      b.classList.add('com-premio');
+      b.title = `${premio}: ${n}`;
+    } else {
+      b.textContent = n;
+      b.title = 'Mostrar em destaque';
+    }
+    return b;
+  }
+
+  async function sortear() {
+    if (sorteando) return;
+    const p = lerParametros();
+    if (p.erro) { status(p.erro, 'erro'); aviso(p.erro); return; }
+    const r = escolher(p);
+    if (r.erro) { status(r.erro, 'erro'); aviso(r.erro); return; }
+
+    sorteando = true;
+    el.sortear.disabled = true;
+    document.body.classList.add('sorteando');
+    el.resultados.innerHTML = '';
+    el.palco.classList.add('ativo');
+
+    // Salva já no início: recarregar a página no meio não "desfaz" o sorteio.
+    const premios = lerPremios(r.numeros.length);
+    const rodada = { id: Date.now(), quando: new Date().toISOString(), min: p.min, max: p.max, numeros: r.numeros, premios };
+    historico.push(rodada);
+    salvarHist();
+
+    const d = Math.max(digitos(p.min), digitos(p.max));
+    const dur = parseInt(el.suspense.value, 10) || 3500;
+    const total = r.numeros.length;
+
+    for (let i = 0; i < total; i++) {
+      const n = r.numeros[i];
+      mostrarPremio(premios[i]);
+      await rolar(p, i === 0 ? dur : Math.max(1200, dur * 0.55), d, i, total);
+      mostrarNumero(n, d);
+      reiniciarAnim('revelado');
+      somFinal();
+      status(total > 1 ? `${i + 1}º número sorteado!` : 'Número sorteado!', 'destaque');
+      const chip = criarChip(n, premios[i]);
+      el.resultados.appendChild(chip);
+      marcarAtual(chip);
+      await esperar(220);
+      if (i === total - 1) festa(el.numero);
+      else explosao(...centroDe(el.numero), { qtd: 110, forca: 13 });
+      if (i < total - 1) await esperar(1100);
+    }
+
+    el.palco.classList.remove('ativo');
+    if (total > 1) status(`${total} números sorteados!`, 'destaque');
+    renderHistorico();
+    atualizarDisponiveis();
+    sorteando = false;
+    el.sortear.disabled = false;
+    document.body.classList.remove('sorteando');
+  }
+  let sorteando = false;
+
+  /* ===================== Histórico ===================== */
+  const dataHora = (iso) => {
+    const d = new Date(iso);
+    return isNaN(d) ? '' : d.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+  };
+
+  function renderHistorico() {
+    const qtdNums = historico.reduce((s, r) => s + r.numeros.length, 0);
+    el.vazio.hidden = qtdNums > 0;
+    el.histInfo.textContent = qtdNums
+      ? `${qtdNums} número${qtdNums > 1 ? 's' : ''} em ${historico.length} rodada${historico.length > 1 ? 's' : ''} · em ordem de sorteio`
+      : '';
+
+    const fragTodos = document.createDocumentFragment();
+    historico.forEach((r) => r.numeros.forEach((n, j) => fragTodos.appendChild(criarChip(n, r.premios[j]))));
+    el.todos.replaceChildren(fragTodos);
+    el.todos.scrollTop = el.todos.scrollHeight;
+
+    const fragRod = document.createDocumentFragment();
+    for (let i = historico.length - 1; i >= 0; i--) {
+      const r = historico[i];
+      const li = document.createElement('li');
+      const meta = document.createElement('span');
+      meta.className = 'meta';
+      meta.textContent = `Rodada ${i + 1} · ${dataHora(r.quando)} · de ${r.min} a ${r.max}`;
+      const nums = document.createElement('span');
+      nums.className = 'nums';
+      nums.textContent = r.premios.some(Boolean)
+        ? r.numeros.map((n, j) => (r.premios[j] ? `${r.premios[j]}: ${n}` : String(n))).join('\n')
+        : r.numeros.join(', ');
+      nums.style.whiteSpace = 'pre-line';
+      const rem = document.createElement('button');
+      rem.type = 'button'; rem.className = 'remover'; rem.dataset.i = i;
+      rem.textContent = '×';
+      rem.title = `Remover rodada ${i + 1} (os números voltam a ficar disponíveis)`;
+      rem.setAttribute('aria-label', rem.title);
+      li.append(meta, rem, nums);
+      fragRod.appendChild(li);
+    }
+    el.rodadas.replaceChildren(fragRod);
+    $('#detalhes').hidden = historico.length === 0;
+  }
+
+  function textoHistorico() {
+    return historico
+      .map((r, i) => {
+        const nums = r.numeros.map((n, j) => (r.premios[j] ? `${n} (${r.premios[j]})` : String(n))).join(', ');
+        return `Rodada ${i + 1} (${dataHora(r.quando)}, de ${r.min} a ${r.max}): ${nums}`;
+      })
+      .join('\n');
+  }
+
+  async function copiar() {
+    if (!historico.length) { aviso('Ainda não há números sorteados.'); return; }
+    const txt = textoHistorico();
+    try {
+      await navigator.clipboard.writeText(txt);
+    } catch (e) {
+      const ta = document.createElement('textarea');
+      ta.value = txt; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy'); } catch (e2) {}
+      ta.remove();
+    }
+    aviso('Lista copiada!');
+  }
+
+  function baixarCsv() {
+    if (!historico.length) { aviso('Ainda não há números sorteados.'); return; }
+    const csv = (v) => `"${String(v).replace(/"/g, '""')}"`;
+    const linhas = ['ordem;rodada;data_hora;de;ate;numero;premio'];
+    let ordem = 0;
+    historico.forEach((r, i) => r.numeros.forEach((n, j) =>
+      linhas.push([++ordem, i + 1, dataHora(r.quando), r.min, r.max, n, csv(r.premios[j] || '')].join(';'))));
+    const blob = new Blob(['﻿' + linhas.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `sorteio-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
+
+  let timerLimpar = null;
+  function resetLimpar() {
+    clearTimeout(timerLimpar); timerLimpar = null;
+    el.btnLimpar.textContent = 'Limpar';
+    el.btnLimpar.classList.remove('perigo');
+  }
+  function limpar() {
+    if (sorteando) return;
+    if (!historico.length) { aviso('O histórico já está vazio.'); return; }
+    if (!timerLimpar) { // pede um segundo clique para confirmar
+      el.btnLimpar.textContent = 'Confirmar?';
+      el.btnLimpar.classList.add('perigo');
+      timerLimpar = setTimeout(resetLimpar, 4000);
+      return;
+    }
+    resetLimpar();
+    historico = [];
+    salvarHist();
+    el.resultados.innerHTML = '';
+    mostrarNumero('?', 1);
+    mostrarPremio('');
+    status('Histórico limpo. Pronto para sortear!');
+    renderHistorico();
+    atualizarDisponiveis();
+    aviso('Histórico apagado.');
+  }
+
+  function removerRodada(i) {
+    if (sorteando || !historico[i]) return;
+    historico.splice(i, 1);
+    salvarHist();
+    renderHistorico();
+    atualizarDisponiveis();
+    aviso(`Rodada ${i + 1} removida.`);
+  }
+
+  /* ===================== Aviso ===================== */
+  let timerAviso = null;
+  function aviso(txt) {
+    el.toast.textContent = txt;
+    el.toast.classList.add('ver');
+    clearTimeout(timerAviso);
+    timerAviso = setTimeout(() => el.toast.classList.remove('ver'), 2600);
+  }
+
+  /* ===================== Confetes (canvas) ===================== */
+  const cv = $('#confete'), ctx = cv.getContext('2d');
+  const CORES = ['#ff4d6d', '#ffd60a', '#06d6a0', '#3a86ff', '#8338ec', '#ff8500', '#f72585', '#4cc9f0'];
+  const reduzido = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let parts = [], animando = 0, W = 0, H = 0;
+
+  function ajustarCanvas() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    W = innerWidth; H = innerHeight;
+    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  addEventListener('resize', ajustarCanvas);
+  ajustarCanvas();
+
+  function explosao(x, y, { qtd = 140, angulo = -Math.PI / 2, abertura = Math.PI * 2, forca = 14 } = {}) {
+    if (reduzido) qtd = Math.round(qtd / 3);
+    qtd = Math.min(qtd, 1800 - parts.length);
+    for (let i = 0; i < qtd; i++) {
+      const a = angulo + (Math.random() - 0.5) * abertura;
+      const v = forca * (0.4 + Math.random() * 0.8);
+      parts.push({
+        x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v,
+        w: 7 + Math.random() * 8, h: 9 + Math.random() * 10,
+        cor: CORES[(Math.random() * CORES.length) | 0],
+        circulo: Math.random() < 0.25,
+        rot: Math.random() * 6.283, vr: (Math.random() - 0.5) * 0.3,
+        osc: Math.random() * 6.283, vo: 0.05 + Math.random() * 0.1,
+        vida: 0, max: 200 + Math.random() * 140,
+      });
+    }
+    if (!animando) animando = requestAnimationFrame(passo);
+  }
+
+  function passo() {
+    ctx.clearRect(0, 0, W, H);
+    for (let i = parts.length - 1; i >= 0; i--) {
+      const p = parts[i];
+      p.vx *= 0.982; p.vy = p.vy * 0.982 + 0.3;
+      p.osc += p.vo;
+      p.x += p.vx + Math.sin(p.osc) * 0.8; p.y += p.vy;
+      p.rot += p.vr; p.vida++;
+      if (p.y > H + 40 || p.vida >= p.max) { parts[i] = parts[parts.length - 1]; parts.pop(); continue; }
+      ctx.save();
+      ctx.globalAlpha = p.vida > p.max - 40 ? (p.max - p.vida) / 40 : 1;
+      ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+      ctx.fillStyle = p.cor;
+      if (p.circulo) { ctx.beginPath(); ctx.arc(0, 0, p.w * 0.45, 0, 6.283); ctx.fill(); }
+      else { ctx.scale(1, Math.cos(p.osc * 2)); ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h); }
+      ctx.restore();
+    }
+    animando = parts.length ? requestAnimationFrame(passo) : 0;
+    if (!animando) ctx.clearRect(0, 0, W, H);
+  }
+
+  function centroDe(elem) {
+    const r = elem.getBoundingClientRect();
+    return [r.left + r.width / 2, r.top + r.height / 2];
+  }
+
+  function festa(elem) {
+    const [x, y] = centroDe(elem);
+    explosao(x, y, { qtd: 200, forca: 17 });
+    const f = Math.max(18, Math.sqrt(H) * 0.95);
+    setTimeout(() => {
+      explosao(0, H, { qtd: 110, angulo: -Math.PI / 3, abertura: 0.7, forca: f });
+      explosao(W, H, { qtd: 110, angulo: -2 * Math.PI / 3, abertura: 0.7, forca: f });
+    }, 200);
+  }
+
+  /* ===================== Eventos ===================== */
+  el.sortear.addEventListener('click', sortear);
+
+  el.numero.addEventListener('click', () => {
+    if (sorteando) return;
+    reiniciarAnim('pulo');
+    somPop();
+    explosao(...centroDe(el.numero), { qtd: 150, forca: 15 });
+  });
+
+  // Clique em qualquer número (resultado atual ou histórico) => mostra grande + confetes.
+  document.addEventListener('click', (e) => {
+    const chip = e.target.closest('.chip');
+    if (chip && !sorteando) {
+      mostrarNumero(chip.dataset.n);
+      reiniciarAnim('revelado');
+      mostrarPremio(chip.dataset.premio || '');
+      status(`Número ${chip.dataset.n}`, 'destaque');
+      marcarAtual(chip);
+      somPop();
+      explosao(...centroDe(chip), { qtd: 60, forca: 9 });
+      setTimeout(() => explosao(...centroDe(el.numero), { qtd: 140, forca: 15 }), 250);
+      return;
+    }
+    const rem = e.target.closest('.remover');
+    if (rem) removerRodada(parseInt(rem.dataset.i, 10));
+  });
+
+  el.btnCopiar.addEventListener('click', copiar);
+  el.btnCsv.addEventListener('click', baixarCsv);
+  el.btnLimpar.addEventListener('click', limpar);
+  el.btnTema.addEventListener('click', alternarTema);
+  el.btnSom.addEventListener('click', alternarSom);
+  el.btnTela.addEventListener('click', alternarTela);
+
+  function aoMudarCampos() {
+    cfg.min = el.min.value; cfg.max = el.max.value; cfg.qtd = el.qtd.value;
+    cfg.suspense = el.suspense.value; cfg.semRepetir = el.semRepetir.checked;
+    salvarCfg();
+    renderPremios();
+    atualizarDisponiveis();
+  }
+  [el.min, el.max, el.qtd, el.suspense, el.semRepetir].forEach((c) => {
+    c.addEventListener('input', aoMudarCampos);
+    c.addEventListener('change', aoMudarCampos);
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    const tag = e.target.tagName;
+    if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') {
+      if (e.key === 'Enter' && tag === 'INPUT' && e.target.type !== 'checkbox') { e.preventDefault(); sortear(); }
+      return;
+    }
+    const k = e.key.toLowerCase();
+    if (e.key === ' ' || e.key === 'Enter') {
+      if (tag === 'BUTTON' || tag === 'SUMMARY') return; // o próprio botão já trata
+      e.preventDefault(); sortear();
+    } else if (k === 'f') alternarTela();
+    else if (k === 't') alternarTema();
+    else if (k === 's') alternarSom();
+  });
+
+  /* ===================== Início ===================== */
+  atualizarTema();
+  atualizarSom();
+  atualizarTela();
+  renderPremios();
+  renderHistorico();
+  atualizarDisponiveis();
+  const ultima = historico[historico.length - 1];
+  if (ultima && ultima.numeros.length) {
+    const k = ultima.numeros.length - 1;
+    mostrarNumero(ultima.numeros[k], Math.max(digitos(ultima.min), digitos(ultima.max)));
+    mostrarPremio(ultima.premios[k] || '', false);
+    status('Último número sorteado');
+  }
+})();
+</script>
+</body>
+</html>
